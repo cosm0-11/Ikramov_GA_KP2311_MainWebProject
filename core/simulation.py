@@ -13,6 +13,8 @@ from core.config import (
     SIM_SIGNATURES_DIR,
     SIM_RESULTS_DIR,
     PUBLIC_KEY_PATH,
+    PRIVATE_KEY_PATH,
+    PRIVATE_KEY_ENV_NAME,
     SIMULATION_FILE_COUNT,
     SIMULATION_COMPROMISED_COUNT,
     SIMULATION_MISSING_SIGNATURE_COUNT,
@@ -45,20 +47,48 @@ def clear_simulation_directories(): # функция очистки директ
                 shutil.rmtree(item)  # удаляем каталоги, если они случайно попали в каталог результатов
 
 
-def get_signing_key(): # функция получения закрытого ключа для подписания файлов
-    private_key_hex = os.getenv("PRIVATE_KEY_HEX")
+def get_signing_key():  # функция получения закрытого ключа для подписания файлов в симуляции
+    # 1. Пытаемся взять ключ из переменной окружения (режим Replit / CI)
+    private_key_hex = os.getenv(PRIVATE_KEY_ENV_NAME)
+    if private_key_hex:
+        try:
+            private_key_data = binascii.unhexlify(private_key_hex)
+        except binascii.Error as error:
+            raise ValueError(
+                f"{PRIVATE_KEY_ENV_NAME} содержит некорректный hex-формат."
+            ) from error
+
+        try:
+            return ed25519.SigningKey(private_key_data)
+        except Exception as error:
+            raise ValueError(
+                "Не удалось создать закрытый ключ для симуляции из переменной окружения."
+            ) from error
+
+    # 2. Если переменной окружения нет — используем файл приватного ключа (для ALT Linux)
+    if not PRIVATE_KEY_PATH.exists():
+        raise ValueError(
+            f"Приватный ключ для симуляции не найден: переменная окружения {PRIVATE_KEY_ENV_NAME} не задана "
+            f"и файл {PRIVATE_KEY_PATH} отсутствует."
+        )
+
+    private_key_hex = PRIVATE_KEY_PATH.read_text(encoding="utf-8").strip()
     if not private_key_hex:
-        raise ValueError("Переменная окружения PRIVATE_KEY_HEX не задана.")
+        raise ValueError(f"Файл приватного ключа {PRIVATE_KEY_PATH} пуст.")
 
     try:
         private_key_data = binascii.unhexlify(private_key_hex)
     except binascii.Error as error:
-        raise ValueError("PRIVATE_KEY_HEX содержит некорректный hex-формат.") from error
+        raise ValueError(
+            "Приватный ключ в файле для симуляции имеет некорректный hex-формат."
+        ) from error
 
     try:
         return ed25519.SigningKey(private_key_data)
     except Exception as error:
-        raise ValueError("Не удалось создать закрытый ключ для симуляции.") from error
+        raise ValueError(
+            "Не удалось создать закрытый ключ для симуляции из файла."
+        ) from error
 
 
 def get_verifying_key(): # функция получения открытого ключа для проверки подписи
