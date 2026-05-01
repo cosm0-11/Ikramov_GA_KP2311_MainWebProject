@@ -71,16 +71,27 @@ WSGI_APPLICATION = 'django_project.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-DATABASES = { # используется MariaDB для ALT Linux
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',  # используем MySQL/MariaDB backend
-        'NAME': 'verification_db',            # имя базы, которую создали
-        'USER': 'verif_user',                 # пользователь БД
-        'PASSWORD': 'strong_password_here',   # его пароль
-        'HOST': 'localhost',                  # БД на этой же машине
-        'PORT': '3306',                       # порт MariaDB/MySQL по умолчанию
+# Определяем, работаем ли мы в окружении ALT Linux / локальной ВМ
+USE_MYSQL = os.getenv("USE_MYSQL", "").lower() == "true"
+
+if USE_MYSQL:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.mysql",
+            "NAME": "verification_db",
+            "USER": "verif_user",
+            "PASSWORD": "strong_password_here",
+            "HOST": "localhost",
+            "PORT": "3306",
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
